@@ -221,18 +221,36 @@ echo ""
 echo "测试Redis连接..."
 REDIS_CONNECTED=false
 
-# 方法1: 使用redis-cli
+# 方法1: 使用redis-cli测试完整连接（包括认证）
 if command -v redis-cli >/dev/null 2>&1; then
+  echo "使用redis-cli测试Redis连接和认证..."
   if [ -n "$REDIS_PASSWORD" ]; then
-    REDIS_TEST_CMD="redis-cli -h $REDIS_HOST -p $REDIS_PORT -a $REDIS_PASSWORD ping 2>&1"
+    # 尝试使用AUTH命令（只密码）
+    REDIS_TEST_CMD="redis-cli -h $REDIS_HOST -p $REDIS_PORT --no-auth-warning ping 2>&1"
+    # 先连接，然后发送AUTH命令
+    REDIS_AUTH_TEST="(echo AUTH $REDIS_PASSWORD; echo PING) | redis-cli -h $REDIS_HOST -p $REDIS_PORT --no-auth-warning 2>&1"
   else
     REDIS_TEST_CMD="redis-cli -h $REDIS_HOST -p $REDIS_PORT ping 2>&1"
+    REDIS_AUTH_TEST=""
   fi
   
   RETRY_COUNT=0
   MAX_RETRIES=5
   while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    RESULT=$(eval "$REDIS_TEST_CMD")
+    if [ -n "$REDIS_PASSWORD" ] && [ -n "$REDIS_AUTH_TEST" ]; then
+      # 测试带密码的连接
+      RESULT=$(eval "$REDIS_AUTH_TEST")
+      if echo "$RESULT" | grep -q "PONG"; then
+        echo "✅ Redis连接和认证成功！"
+        REDIS_CONNECTED=true
+        break
+      fi
+      # 如果AUTH方式失败，尝试使用-a参数
+      RESULT=$(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping 2>&1)
+    else
+      RESULT=$(eval "$REDIS_TEST_CMD")
+    fi
+    
     if echo "$RESULT" | grep -q "PONG"; then
       echo "✅ Redis连接成功！"
       REDIS_CONNECTED=true
@@ -245,6 +263,7 @@ if command -v redis-cli >/dev/null 2>&1; then
       else
         echo "⚠️  Redis连接测试失败: $RESULT"
         echo "   但将继续启动Nitter（Nitter可能会重试连接）"
+        echo "   提示：如果Nitter仍然无法连接，可能是Redis认证方式不兼容"
       fi
     fi
   done
@@ -252,7 +271,7 @@ if command -v redis-cli >/dev/null 2>&1; then
 elif command -v nc >/dev/null 2>&1; then
   echo "使用nc测试Redis端口连接..."
   if nc -z -w 3 "$REDIS_HOST" "$REDIS_PORT" 2>/dev/null; then
-    echo "✅ Redis端口可访问"
+    echo "✅ Redis端口可访问（但未测试认证）"
     REDIS_CONNECTED=true
   else
     echo "⚠️  Redis端口不可访问，但将继续启动Nitter"
@@ -262,8 +281,32 @@ else
   echo "   提示：Nitter会在启动后自动重试连接Redis"
 fi
 
+# 输出Redis连接信息用于调试
+echo ""
+echo "Redis连接信息："
+echo "  Host: $REDIS_HOST"
+echo "  Port: $REDIS_PORT"
+echo "  Password: ${REDIS_PASSWORD:+已设置（长度: ${#REDIS_PASSWORD}）}"
+echo "  连接测试: ${REDIS_CONNECTED:+✅ 成功}${REDIS_CONNECTED:-❌ 失败}"
+echo ""
+
 echo ""
 echo "启动Nitter..."
 
+# 重要提示：即使Redis连接失败，Nitter仍然可以启动
+# RSS功能可能仍然可用（不依赖Redis缓存）
+if [ "$REDIS_CONNECTED" != "true" ]; then
+  echo ""
+  echo "⚠️  警告：Redis连接测试未通过"
+  echo "   Nitter仍会启动，但功能可能受限："
+  echo "   - RSS功能通常仍然可用（不依赖Redis）"
+  echo "   - 缓存功能不可用"
+  echo "   - 如果Nitter启动后仍显示Redis错误，这是正常的"
+  echo "   - 可以尝试访问RSS端点测试功能是否正常"
+  echo ""
+fi
+
 # 启动Nitter，使用-c参数指定配置文件路径
+# 注意：Nitter可能会在启动时尝试连接Redis，如果失败会显示错误
+# 但这不影响RSS功能的正常使用
 exec "$NITTER_BIN" -c "$TEMP_CONFIG"
