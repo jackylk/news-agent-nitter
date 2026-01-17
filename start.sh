@@ -16,10 +16,21 @@ NITTER_BASE64SECRET=${NITTER_BASE64SECRET:-}
 
 # 如果提供了REDIS_URL，解析它
 if [ -n "$REDIS_URL" ]; then
+  echo "解析REDIS_URL: $REDIS_URL"
   # 解析Redis URL格式：redis://[password@]host:port[/db]
-  REDIS_HOST=$(echo "$REDIS_URL" | sed -E 's|redis://([^:]+:)?([^@]+@)?([^:/]+).*|\3|')
-  REDIS_PORT=$(echo "$REDIS_URL" | sed -E 's|redis://[^:]+:([0-9]+).*|\1|' || echo "6379")
+  # 提取host（在@之后，:之前）
+  REDIS_HOST=$(echo "$REDIS_URL" | sed -E 's|redis://([^@]+@)?([^:/]+).*|\2|')
+  # 提取port（在最后一个:之后，/之前）
+  REDIS_PORT=$(echo "$REDIS_URL" | sed -E 's|redis://[^:]+:([0-9]+).*|\1|')
+  if [ "$REDIS_PORT" = "$REDIS_URL" ]; then
+    REDIS_PORT="6379"  # 如果没有找到port，使用默认值
+  fi
+  # 提取password（在://之后，@之前）
   REDIS_PASSWORD=$(echo "$REDIS_URL" | sed -E 's|redis://([^:]+):([^@]+)@.*|\2|' || echo "")
+  if [ "$REDIS_PASSWORD" = "$REDIS_URL" ]; then
+    REDIS_PASSWORD=""  # 如果没有找到password，清空
+  fi
+  echo "解析结果 - Host: $REDIS_HOST, Port: $REDIS_PORT, Password: ${REDIS_PASSWORD:+已设置}"
 fi
 
 # 使用/tmp目录创建临时配置文件（通常可写）
@@ -74,31 +85,23 @@ if [ -n "$PORT" ]; then
   sed "s|port = .*|port = $PORT|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
 fi
 
+# 更新Redis配置（在[Cache]部分内）
 if [ -n "$REDIS_HOST" ]; then
-  if grep -q "^host = " "$TEMP_CONFIG"; then
-    sed "s|^host = .*|host = \"$REDIS_HOST\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
-  else
-    # 在[Cache]部分后添加
-    sed "/^\[Cache\]/a host = \"$REDIS_HOST\"" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
-  fi
+  # 更新[Cache]部分的host
+  sed "/^\[Cache\]/,/^\[/ s|^host = .*|host = \"$REDIS_HOST\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+  echo "已更新Redis host: $REDIS_HOST"
 fi
 
 if [ -n "$REDIS_PORT" ]; then
-  # 更新Cache部分的port（在[Cache]和下一个[之间）
-  if grep -A 10 "^\[Cache\]" "$TEMP_CONFIG" | grep -q "^port = "; then
-    sed "/^\[Cache\]/,/^\[/ s|^port = .*|port = $REDIS_PORT|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
-  else
-    # 如果Cache部分没有port，在host后面添加
-    sed "/^\[Cache\]/a port = $REDIS_PORT" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
-  fi
+  # 更新[Cache]部分的port（在[Cache]和下一个[之间）
+  sed "/^\[Cache\]/,/^\[/ s|^port = .*|port = $REDIS_PORT|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+  echo "已更新Redis port: $REDIS_PORT"
 fi
 
 if [ -n "$REDIS_PASSWORD" ]; then
-  if grep -q "^password = " "$TEMP_CONFIG"; then
-    sed "s|^password = .*|password = \"$REDIS_PASSWORD\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
-  else
-    sed "/^\[Cache\]/a password = \"$REDIS_PASSWORD\"" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
-  fi
+  # 更新[Cache]部分的password
+  sed "/^\[Cache\]/,/^\[/ s|^password = .*|password = \"$REDIS_PASSWORD\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+  echo "已更新Redis password: [已设置]"
 fi
 
 if [ -n "$NITTER_HMAC_KEY" ]; then
@@ -201,6 +204,18 @@ ls -la "$SESSIONS_FILE" 2>/dev/null || ls -la sessions.jsonl 2>/dev/null || echo
 if [ -w /etc ] 2>/dev/null; then
   ln -sf "$TEMP_CONFIG" /etc/nitter.conf 2>/dev/null && echo "已创建配置文件符号链接"
 fi
+
+# 输出最终配置信息用于调试
+echo ""
+echo "=== 最终配置信息 ==="
+echo "Redis配置:"
+echo "  REDIS_HOST: ${REDIS_HOST:-未设置}"
+echo "  REDIS_PORT: ${REDIS_PORT:-未设置}"
+echo "  REDIS_PASSWORD: ${REDIS_PASSWORD:+已设置}"
+echo ""
+echo "配置文件[Cache]部分:"
+grep -A 5 "^\[Cache\]" "$TEMP_CONFIG" || echo "无法读取Cache配置"
+echo ""
 
 # 启动Nitter，使用-c参数指定配置文件路径
 exec "$NITTER_BIN" -c "$TEMP_CONFIG"
