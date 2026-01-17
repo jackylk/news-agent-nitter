@@ -29,8 +29,10 @@
    - **Install Command**: 留空（无需安装依赖）
 
 4. **环境变量**（可选）
-   - 通常不需要环境变量
-   - 如果需要，可以在 "Environment Variables" 中添加
+   - **NITTER_PRODUCTION_URL**（可选）：
+     - 默认值：`https://news-agent-nitter-production.up.railway.app`
+     - 如果Railway上的Nitter URL有变化，可以在这里配置
+   - 通常不需要其他环境变量
 
 5. **部署**
    - 点击 "Deploy"

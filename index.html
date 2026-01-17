@@ -409,11 +409,44 @@
     </div>
 
     <script>
+        // 生产环境Nitter实例URL
+        // 默认使用Railway生产环境地址
+        const PRODUCTION_NITTER_URL = 'https://news-agent-nitter-production.up.railway.app';
+        
         // 存储实例列表
         let instances = JSON.parse(localStorage.getItem('nitter-instances') || '[]');
-
-        // 初始化
+        
+        // 初始化：如果实例列表为空，添加生产环境实例
         document.addEventListener('DOMContentLoaded', function() {
+            // 检查是否已有生产环境实例
+            const hasProductionInstance = instances.some(inst => 
+                inst.id === 'production' || 
+                inst.url === PRODUCTION_NITTER_URL ||
+                inst.url.includes('news-agent-nitter-production.up.railway.app')
+            );
+            
+            // 如果没有生产环境实例，添加它
+            if (!hasProductionInstance) {
+                instances.push({
+                    id: 'production',
+                    url: PRODUCTION_NITTER_URL,
+                    name: '生产环境Nitter实例 (Railway)',
+                    status: 'unknown'
+                });
+                saveInstances();
+            } else {
+                // 如果已存在，更新URL和名称（以防URL变更）
+                const prodInstance = instances.find(inst => 
+                    inst.id === 'production' || 
+                    inst.url.includes('railway.app')
+                );
+                if (prodInstance && prodInstance.url !== PRODUCTION_NITTER_URL) {
+                    prodInstance.url = PRODUCTION_NITTER_URL;
+                    prodInstance.name = '生产环境Nitter实例 (Railway)';
+                    saveInstances();
+                }
+            }
+            
             renderInstances();
             updateInstanceSelect();
         });

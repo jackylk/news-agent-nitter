@@ -24,5 +24,8 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "NITTER_PRODUCTION_URL": "https://news-agent-nitter-production.up.railway.app"
+  }
 }

@@ -84,12 +84,17 @@ Railway Project
 2. **Nitter域名**：
 
    ```bash
-   NITTER_DOMAIN=your-nitter-service.railway.app
+   # 生产环境示例
+   NITTER_DOMAIN=news-agent-nitter-production.up.railway.app
+   
+   # 或者使用Railway自动生成的域名
+   # NITTER_DOMAIN=your-nitter-service.railway.app
    ```
    
    **如何获取**：
    - 部署完成后，在Nitter服务的设置中查看 **"Public URL"**
    - 复制这个URL（不包含`https://`前缀）
+   - **生产环境**：使用 `news-agent-nitter-production.up.railway.app`
 
 3. **安全密钥**：
 

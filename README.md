@@ -2,6 +2,14 @@
 
 这是用于在Railway上部署Nitter实例的配置文件。
 
+## 生产环境
+
+- **前端**: 部署在 Vercel
+- **后端**: 部署在 Railway (`news-agent-nitter-production.up.railway.app`)
+- **Redis**: Railway内部服务
+
+详细配置请参考：`PRODUCTION_CONFIG.md`
+
 ## 什么是Nitter？
 
 Nitter是一个开源的Twitter/X前端替代工具，可以将Twitter用户页面转换为RSS源。
@@ -145,21 +153,54 @@ npm start
 4. 输入Nitter实例URL
 5. 点击"测试"验证可用性
 
-## 本地测试
+## 本地开发环境
 
-使用Docker Compose在本地测试：
+### 快速启动（推荐）
 
 ```bash
-# 生成密钥
+# 一键启动所有服务（Redis + Nitter + 前端）
+./start-local.sh
+```
+
+这将启动：
+- Redis服务：`localhost:6379`
+- Nitter服务：`localhost:8080`
+- 前端服务：`http://localhost:3000`
+
+### 分步启动
+
+#### 1. 启动Redis和Nitter
+
+```bash
+# 生成密钥（首次运行）
 export NITTER_HMAC_KEY=$(openssl rand -hex 32)
 export NITTER_BASE64SECRET=$(openssl rand -base64 32)
 
 # 启动服务
 docker-compose up -d
 
-# 访问
-# http://localhost:8080
+# 查看日志
+docker-compose logs -f nitter
 ```
+
+#### 2. 启动前端服务
+
+```bash
+# 启动前端代理服务器
+node proxy-server.js
+# 或
+npm start
+```
+
+### 测试
+
+1. **访问Nitter**：`http://localhost:8080`
+2. **访问前端**：`http://localhost:3000`
+3. **测试RSS**：
+   - `http://localhost:8080/OpenAI/rss`
+   - `http://localhost:8080/elonmusk/rss`
+
+详细说明请参考：`LOCAL_DEV.md`
 
 ## 故障排查
 

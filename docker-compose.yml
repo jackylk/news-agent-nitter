@@ -10,6 +10,11 @@ services:
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   nitter:
     build: .
@@ -18,17 +23,26 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     environment:
-      - NITTER_DOMAIN=localhost:8080
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - NITTER_DOMAIN=${NITTER_DOMAIN:-localhost:8080}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - NITTER_HMAC_KEY=${NITTER_HMAC_KEY:-change-me-in-production}
       - NITTER_BASE64SECRET=${NITTER_BASE64SECRET:-change-me-in-production}
-      - NITTER_TITLE=Nitter
-      - NITTER_THEME=auto
+      - NITTER_TITLE=${NITTER_TITLE:-Nitter}
+      - NITTER_THEME=${NITTER_THEME:-auto}
+      - PORT=8080
     volumes:
       - ./data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   redis-data:
