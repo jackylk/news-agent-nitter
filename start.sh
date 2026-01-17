@@ -165,6 +165,38 @@ fi
 echo "使用Nitter: $NITTER_BIN"
 echo "使用配置文件: $TEMP_CONFIG"
 
+# 切换到Nitter可执行文件所在目录（确保sessions.jsonl在正确位置）
+NITTER_DIR="$(dirname "$NITTER_BIN")"
+cd "$NITTER_DIR" || {
+  echo "警告: 无法切换到 $NITTER_DIR，尝试其他目录..."
+  cd /src || cd /app || cd /tmp || cd /
+}
+
+echo "当前工作目录: $(pwd)"
+
+# 创建sessions.jsonl文件（Nitter需要这个文件，即使是空的）
+# 在当前工作目录创建（Nitter查找 ./sessions.jsonl）
+SESSIONS_FILE="$(pwd)/sessions.jsonl"
+if [ ! -f "$SESSIONS_FILE" ]; then
+  if touch "$SESSIONS_FILE" 2>/dev/null; then
+    echo "创建sessions.jsonl文件: $SESSIONS_FILE"
+  else
+    # 如果当前目录不可写，尝试在可写目录创建并创建符号链接
+    for WRITABLE_DIR in "/tmp" "/app"; do
+      if [ -w "$WRITABLE_DIR" ] 2>/dev/null; then
+        TEMP_SESSIONS="$WRITABLE_DIR/sessions.jsonl"
+        touch "$TEMP_SESSIONS" 2>/dev/null && ln -sf "$TEMP_SESSIONS" "$SESSIONS_FILE" 2>/dev/null && {
+          echo "创建sessions.jsonl文件（通过符号链接）: $SESSIONS_FILE -> $TEMP_SESSIONS"
+          break
+        }
+      fi
+    done
+  fi
+fi
+
+echo "检查sessions.jsonl文件:"
+ls -la "$SESSIONS_FILE" 2>/dev/null || ls -la sessions.jsonl 2>/dev/null || echo "警告: sessions.jsonl可能不存在"
+
 # 尝试创建符号链接到/etc（如果/etc可写且Nitter需要）
 if [ -w /etc ] 2>/dev/null; then
   ln -sf "$TEMP_CONFIG" /etc/nitter.conf 2>/dev/null && echo "已创建配置文件符号链接"
