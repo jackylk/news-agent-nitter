@@ -111,10 +111,12 @@ fi
 
 # 查找Nitter可执行文件
 NITTER_BIN=""
+
 # 先尝试常见的路径
-for path in "/usr/bin/nitter" "/usr/local/bin/nitter" "/app/nitter" "/opt/nitter/nitter"; do
+for path in "/usr/bin/nitter" "/usr/local/bin/nitter" "/app/nitter" "/opt/nitter/nitter" "/nitter"; do
   if [ -f "$path" ] && [ -x "$path" ]; then
     NITTER_BIN="$path"
+    echo "在标准路径找到Nitter: $NITTER_BIN"
     break
   fi
 done
@@ -123,22 +125,40 @@ done
 if [ -z "$NITTER_BIN" ]; then
   if command -v nitter >/dev/null 2>&1; then
     NITTER_BIN="nitter"
+    echo "在PATH中找到Nitter: $NITTER_BIN"
   fi
 fi
 
-# 如果还是找不到，尝试查找
+# 如果还是找不到，尝试更广泛的查找
 if [ -z "$NITTER_BIN" ]; then
-  echo "尝试查找Nitter可执行文件..."
-  FOUND=$(find /usr /app /opt /bin /sbin -name "nitter" -type f -executable 2>/dev/null | head -1)
+  echo "尝试广泛查找Nitter可执行文件..."
+  # 查找所有可能的nitter文件
+  FOUND=$(find / -name "nitter" -type f -executable 2>/dev/null | head -1)
   if [ -n "$FOUND" ]; then
     NITTER_BIN="$FOUND"
     echo "找到Nitter: $NITTER_BIN"
   else
-    echo "错误: 找不到Nitter可执行文件"
+    echo "警告: 找不到Nitter可执行文件，尝试其他方法..."
     echo "当前PATH: $PATH"
-    echo "查找结果:"
-    find /usr /app /opt -name "*nitter*" -type f 2>/dev/null | head -10
-    exit 1
+    echo "查找所有nitter相关文件:"
+    find /usr /app /opt /bin /sbin /root /home -name "*nitter*" -type f 2>/dev/null | head -20
+    echo ""
+    echo "查找所有可执行文件:"
+    find /usr/bin /usr/local/bin /app /opt -type f -executable 2>/dev/null | head -20
+    echo ""
+    echo "检查镜像的默认ENTRYPOINT/CMD..."
+    # 尝试直接运行nitter（可能镜像有ENTRYPOINT）
+    # 设置配置文件环境变量
+    export NITTER_CONFIG="$TEMP_CONFIG"
+    # 尝试直接执行
+    echo "尝试直接执行: nitter -c $TEMP_CONFIG"
+    if command -v nitter >/dev/null 2>&1 || which nitter >/dev/null 2>&1; then
+      exec nitter -c "$TEMP_CONFIG"
+    else
+      echo "错误: 无法找到或执行Nitter"
+      echo "请检查Nitter镜像是否正确，或联系镜像维护者"
+      exit 1
+    fi
   fi
 fi
 
