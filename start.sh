@@ -22,62 +22,133 @@ if [ -n "$REDIS_URL" ]; then
   REDIS_PASSWORD=$(echo "$REDIS_URL" | sed -E 's|redis://([^:]+):([^@]+)@.*|\2|' || echo "")
 fi
 
-# 配置文件路径（使用/app目录，可写）
-CONFIG_FILE="/app/nitter.conf"
+# 使用/tmp目录创建临时配置文件（通常可写）
+TEMP_CONFIG="/tmp/nitter.conf"
+BASE_CONFIG="/app/nitter.conf"
 
-# 更新nitter.conf配置文件
-if [ -f "$CONFIG_FILE" ]; then
-  # 使用sed更新配置文件中的值（在可写目录中操作）
-  if [ -n "$NITTER_DOMAIN" ]; then
-    sed -i "s|hostname = .*|hostname = \"$NITTER_DOMAIN\"|" "$CONFIG_FILE"
+# 如果基础配置文件存在，复制到临时位置；否则创建新文件
+if [ -f "$BASE_CONFIG" ]; then
+  cp "$BASE_CONFIG" "$TEMP_CONFIG"
+else
+  # 创建默认配置文件
+  cat > "$TEMP_CONFIG" << 'EOF'
+# Nitter配置文件
+[Server]
+address = "0.0.0.0"
+port = 8080
+https = false
+title = "Nitter"
+hostname = "localhost"
+
+[Cache]
+host = "redis"
+port = 6379
+password = ""
+db = 0
+
+[Config]
+hmacKey = "change-me"
+base64Secret = "change-me"
+enableRSS = true
+enableDebug = false
+proxy = ""
+
+[Theme]
+theme = "auto"
+
+[Replace]
+twitter = "twitter.com"
+x = "x.com"
+EOF
+fi
+
+# 使用临时文件进行sed操作（避免权限问题）
+TEMP_SED="/tmp/nitter.conf.tmp"
+
+# 更新配置值
+if [ -n "$NITTER_DOMAIN" ]; then
+  sed "s|hostname = .*|hostname = \"$NITTER_DOMAIN\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+fi
+
+if [ -n "$PORT" ]; then
+  sed "s|port = .*|port = $PORT|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+fi
+
+if [ -n "$REDIS_HOST" ]; then
+  if grep -q "^host = " "$TEMP_CONFIG"; then
+    sed "s|^host = .*|host = \"$REDIS_HOST\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+  else
+    # 在[Cache]部分后添加
+    sed "/^\[Cache\]/a host = \"$REDIS_HOST\"" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
   fi
-  
-  if [ -n "$PORT" ]; then
-    sed -i "s|port = .*|port = $PORT|" "$CONFIG_FILE"
+fi
+
+if [ -n "$REDIS_PORT" ]; then
+  # 更新Cache部分的port（在[Cache]和下一个[之间）
+  if grep -A 10 "^\[Cache\]" "$TEMP_CONFIG" | grep -q "^port = "; then
+    sed "/^\[Cache\]/,/^\[/ s|^port = .*|port = $REDIS_PORT|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+  else
+    # 如果Cache部分没有port，在host后面添加
+    sed "/^\[Cache\]/a port = $REDIS_PORT" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
   fi
-  
-  if [ -n "$REDIS_HOST" ]; then
-    sed -i "s|host = .*|host = \"$REDIS_HOST\"|" "$CONFIG_FILE" || echo "host = \"$REDIS_HOST\"" >> "$CONFIG_FILE"
+fi
+
+if [ -n "$REDIS_PASSWORD" ]; then
+  if grep -q "^password = " "$TEMP_CONFIG"; then
+    sed "s|^password = .*|password = \"$REDIS_PASSWORD\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+  else
+    sed "/^\[Cache\]/a password = \"$REDIS_PASSWORD\"" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
   fi
-  
-  if [ -n "$REDIS_PORT" ]; then
-    sed -i "s|port = .*|port = $REDIS_PORT|" "$CONFIG_FILE" || echo "port = $REDIS_PORT" >> "$CONFIG_FILE"
-  fi
-  
-  if [ -n "$REDIS_PASSWORD" ]; then
-    sed -i "s|password = .*|password = \"$REDIS_PASSWORD\"|" "$CONFIG_FILE" || echo "password = \"$REDIS_PASSWORD\"" >> "$CONFIG_FILE"
-  fi
-  
-  if [ -n "$NITTER_HMAC_KEY" ]; then
-    sed -i "s|hmacKey = .*|hmacKey = \"$NITTER_HMAC_KEY\"|" "$CONFIG_FILE"
-  fi
-  
-  if [ -n "$NITTER_BASE64SECRET" ]; then
-    sed -i "s|base64Secret = .*|base64Secret = \"$NITTER_BASE64SECRET\"|" "$CONFIG_FILE"
-  fi
+fi
+
+if [ -n "$NITTER_HMAC_KEY" ]; then
+  sed "s|hmacKey = .*|hmacKey = \"$NITTER_HMAC_KEY\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
+fi
+
+if [ -n "$NITTER_BASE64SECRET" ]; then
+  sed "s|base64Secret = .*|base64Secret = \"$NITTER_BASE64SECRET\"|" "$TEMP_CONFIG" > "$TEMP_SED" && mv "$TEMP_SED" "$TEMP_CONFIG"
 fi
 
 # 查找Nitter可执行文件
 NITTER_BIN=""
-if [ -f "/usr/bin/nitter" ]; then
-  NITTER_BIN="/usr/bin/nitter"
-elif [ -f "/app/nitter" ]; then
-  NITTER_BIN="/app/nitter"
-elif command -v nitter >/dev/null 2>&1; then
-  NITTER_BIN="nitter"
-else
-  echo "错误: 找不到Nitter可执行文件"
-  # 列出可能的路径用于调试
-  echo "尝试查找Nitter..."
-  find /usr /app /opt -name "nitter" -type f 2>/dev/null | head -5
-  exit 1
+# 先尝试常见的路径
+for path in "/usr/bin/nitter" "/usr/local/bin/nitter" "/app/nitter" "/opt/nitter/nitter"; do
+  if [ -f "$path" ] && [ -x "$path" ]; then
+    NITTER_BIN="$path"
+    break
+  fi
+done
+
+# 如果还没找到，尝试在PATH中查找
+if [ -z "$NITTER_BIN" ]; then
+  if command -v nitter >/dev/null 2>&1; then
+    NITTER_BIN="nitter"
+  fi
 fi
 
-# 尝试创建符号链接到/etc（如果/etc可写）
+# 如果还是找不到，尝试查找
+if [ -z "$NITTER_BIN" ]; then
+  echo "尝试查找Nitter可执行文件..."
+  FOUND=$(find /usr /app /opt /bin /sbin -name "nitter" -type f -executable 2>/dev/null | head -1)
+  if [ -n "$FOUND" ]; then
+    NITTER_BIN="$FOUND"
+    echo "找到Nitter: $NITTER_BIN"
+  else
+    echo "错误: 找不到Nitter可执行文件"
+    echo "当前PATH: $PATH"
+    echo "查找结果:"
+    find /usr /app /opt -name "*nitter*" -type f 2>/dev/null | head -10
+    exit 1
+  fi
+fi
+
+echo "使用Nitter: $NITTER_BIN"
+echo "使用配置文件: $TEMP_CONFIG"
+
+# 尝试创建符号链接到/etc（如果/etc可写且Nitter需要）
 if [ -w /etc ] 2>/dev/null; then
-  ln -sf "$CONFIG_FILE" /etc/nitter.conf 2>/dev/null && echo "已创建配置文件符号链接"
+  ln -sf "$TEMP_CONFIG" /etc/nitter.conf 2>/dev/null && echo "已创建配置文件符号链接"
 fi
 
-# 启动Nitter，尝试使用-c参数指定配置文件路径
-# 如果-c参数不支持，Nitter会使用默认路径（/etc/nitter.conf）
-exec "$NITTER_BIN" -c "$CONFIG_FILE"
+# 启动Nitter，使用-c参数指定配置文件路径
+exec "$NITTER_BIN" -c "$TEMP_CONFIG"
