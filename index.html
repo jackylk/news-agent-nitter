@@ -637,9 +637,8 @@
             const tweetList = document.getElementById('tweet-list');
             tweetList.innerHTML = '<div class="loading">正在加载推文...</div>';
 
-            // 尝试使用代理服务器（如果可用）
-            const useProxy = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const proxyUrl = useProxy ? `/api/rss?url=${encodeURIComponent(rssUrl)}` : null;
+            // 尝试使用代理服务器（Vercel或本地开发环境）
+            const proxyUrl = `/api/rss?url=${encodeURIComponent(rssUrl)}`;
 
             try {
                 let response;
@@ -654,18 +653,14 @@
                         }
                     });
                 } catch (directError) {
-                    // 如果直接请求失败（可能是CORS），尝试使用代理
-                    if (proxyUrl) {
-                        console.log('直接请求失败，尝试使用代理服务器...');
-                        response = await fetch(proxyUrl, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/rss+xml, application/xml, text/xml'
-                            }
-                        });
-                    } else {
-                        throw directError;
-                    }
+                    // 如果直接请求失败（可能是CORS），使用代理
+                    console.log('直接请求失败，使用代理服务器...');
+                    response = await fetch(proxyUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/rss+xml, application/xml, text/xml'
+                        }
+                    });
                 }
 
                 if (!response.ok) {

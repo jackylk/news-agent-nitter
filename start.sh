@@ -217,5 +217,53 @@ echo "配置文件[Cache]部分:"
 grep -A 5 "^\[Cache\]" "$TEMP_CONFIG" || echo "无法读取Cache配置"
 echo ""
 
+# 测试Redis连接（如果安装了redis-cli或nc）
+echo "测试Redis连接..."
+REDIS_CONNECTED=false
+
+# 方法1: 使用redis-cli
+if command -v redis-cli >/dev/null 2>&1; then
+  if [ -n "$REDIS_PASSWORD" ]; then
+    REDIS_TEST_CMD="redis-cli -h $REDIS_HOST -p $REDIS_PORT -a $REDIS_PASSWORD ping 2>&1"
+  else
+    REDIS_TEST_CMD="redis-cli -h $REDIS_HOST -p $REDIS_PORT ping 2>&1"
+  fi
+  
+  RETRY_COUNT=0
+  MAX_RETRIES=5
+  while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    RESULT=$(eval "$REDIS_TEST_CMD")
+    if echo "$RESULT" | grep -q "PONG"; then
+      echo "✅ Redis连接成功！"
+      REDIS_CONNECTED=true
+      break
+    else
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+        echo "⏳ Redis连接失败: $RESULT，等待3秒后重试 ($RETRY_COUNT/$MAX_RETRIES)..."
+        sleep 3
+      else
+        echo "⚠️  Redis连接测试失败: $RESULT"
+        echo "   但将继续启动Nitter（Nitter可能会重试连接）"
+      fi
+    fi
+  done
+# 方法2: 使用nc (netcat) 测试端口
+elif command -v nc >/dev/null 2>&1; then
+  echo "使用nc测试Redis端口连接..."
+  if nc -z -w 3 "$REDIS_HOST" "$REDIS_PORT" 2>/dev/null; then
+    echo "✅ Redis端口可访问"
+    REDIS_CONNECTED=true
+  else
+    echo "⚠️  Redis端口不可访问，但将继续启动Nitter"
+  fi
+else
+  echo "⚠️  redis-cli和nc都未安装，跳过Redis连接测试"
+  echo "   提示：Nitter会在启动后自动重试连接Redis"
+fi
+
+echo ""
+echo "启动Nitter..."
+
 # 启动Nitter，使用-c参数指定配置文件路径
 exec "$NITTER_BIN" -c "$TEMP_CONFIG"

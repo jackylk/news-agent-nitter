@@ -1,0 +1,15 @@
+# Vercel忽略文件
+node_modules/
+.git/
+.env
+.env.local
+*.log
+data/
+docker-compose.yml
+Dockerfile
+start.sh
+start-frontend.sh
+nitter.conf
+railway.json
+*.md
+!README.md

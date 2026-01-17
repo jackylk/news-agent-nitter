@@ -188,12 +188,28 @@ docker-compose up -d
 # 或者手动触发重新部署
 ```
 
+## 前端部署到Vercel
+
+前端测试工具可以部署到Vercel，获得全球CDN加速和自动HTTPS。
+
+### 快速部署
+
+1. 登录Vercel（https://vercel.com）
+2. 点击 "Add New..." → "Project"
+3. 选择GitHub仓库
+4. 点击 "Deploy"
+
+详细说明请参考：`VERCEL_DEPLOY.md`
+
 ## 文件说明
 
 - `index.html` - 前端测试工具（单页应用）
-- `proxy-server.js` - RSS代理服务器（解决CORS问题）
+- `api/rss.js` - Vercel Serverless函数（RSS代理）
+- `proxy-server.js` - 本地开发RSS代理服务器
+- `vercel.json` - Vercel配置文件
 - `package.json` - Node.js依赖配置
 - `FRONTEND_GUIDE.md` - 前端工具使用指南
+- `VERCEL_DEPLOY.md` - Vercel部署详细指南
 - `RAILWAY_DEPLOY.md` - Railway部署详细指南
 - `TEST_CHECKLIST.md` - 部署后测试清单
 
