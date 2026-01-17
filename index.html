@@ -355,6 +355,7 @@
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">添加实例</button>
                     <button type="button" class="btn btn-secondary" onclick="testAllInstances()">测试所有实例</button>
+                    <button type="button" class="btn btn-secondary" onclick="addPublicInstances()" title="添加公共Nitter实例（可用性不稳定）">添加公共实例</button>
                 </div>
             </form>
 
@@ -416,6 +417,20 @@
         // 存储实例列表
         let instances = JSON.parse(localStorage.getItem('nitter-instances') || '[]');
         
+        // 公共Nitter实例列表（可选，作为备用）
+        const PUBLIC_INSTANCES = [
+            {
+                id: 'nitter-net',
+                url: 'https://nitter.net',
+                name: 'Nitter官方实例'
+            },
+            {
+                id: 'xcancel',
+                url: 'https://xcancel.com',
+                name: 'XCancel实例'
+            }
+        ];
+        
         // 初始化：如果实例列表为空，添加生产环境实例
         document.addEventListener('DOMContentLoaded', function() {
             // 检查是否已有生产环境实例
@@ -450,6 +465,35 @@
             renderInstances();
             updateInstanceSelect();
         });
+        
+        // 添加公共实例（可选功能）
+        function addPublicInstances() {
+            let added = 0;
+            PUBLIC_INSTANCES.forEach(pubInst => {
+                const exists = instances.some(inst => 
+                    inst.url === pubInst.url || 
+                    inst.id === pubInst.id
+                );
+                if (!exists) {
+                    instances.push({
+                        id: pubInst.id,
+                        url: pubInst.url,
+                        name: pubInst.name,
+                        status: 'unknown'
+                    });
+                    added++;
+                }
+            });
+            
+            if (added > 0) {
+                saveInstances();
+                renderInstances();
+                updateInstanceSelect();
+                showMessage(`已添加 ${added} 个公共实例`, 'success');
+            } else {
+                showMessage('所有公共实例已存在', 'success');
+            }
+        }
 
         // 切换标签页
         function switchTab(tab) {
