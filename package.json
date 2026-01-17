@@ -1,0 +1,22 @@
+{
+  "name": "nitter-frontend-test",
+  "version": "1.0.0",
+  "description": "Nitter实例测试工具 - 前端页面和代理服务器",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "node proxy-server.js",
+    "dev": "node proxy-server.js"
+  },
+  "keywords": [
+    "nitter",
+    "twitter",
+    "rss",
+    "proxy",
+    "test"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=12.0.0"
+  }
+}

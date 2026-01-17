@@ -143,11 +143,28 @@ PORT=8080  # Railway会自动设置，通常无需手动配置
 
 ### 步骤8：测试推文抓取
 
-1. 在订阅管理中添加Twitter/X订阅源：
-   - 源URL：`https://twitter.com/OpenAI` 或 `@OpenAI`
-   - 源类型：`twitter`
-2. 等待系统自动抓取（或手动触发收集）
-3. 在"最新推文"页面查看抓取到的推文
+#### 测试@OpenAI和@elonmusk的推文
+
+1. **直接访问RSS端点测试**：
+   - OpenAI RSS：`https://your-nitter-service.railway.app/OpenAI/rss`
+   - Elon Musk RSS：`https://your-nitter-service.railway.app/elonmusk/rss`
+   - 如果能看到XML格式的RSS内容，说明Nitter工作正常
+
+2. **在网站后台添加订阅源**：
+   - 在订阅管理中添加Twitter/X订阅源：
+     - **OpenAI**：
+       - 源URL：`https://twitter.com/OpenAI` 或 `@OpenAI`
+       - 源类型：`twitter`
+     - **Elon Musk**：
+       - 源URL：`https://twitter.com/elonmusk` 或 `@elonmusk`
+       - 源类型：`twitter`
+   - 等待系统自动抓取（或手动触发收集）
+   - 在"最新推文"页面查看抓取到的推文
+
+3. **验证推文抓取**：
+   - 检查RSS端点是否返回最新推文
+   - 确认推文内容完整（标题、链接、发布时间等）
+   - 如果RSS为空，可能是Nitter需要Twitter session token（见下方说明）
 
 ## 环境变量参考
 

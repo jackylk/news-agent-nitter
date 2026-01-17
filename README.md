@@ -99,10 +99,45 @@ https://your-nitter-service.railway.app
 
 访问以下URL测试：
 - 主页：`https://your-nitter-service.railway.app`
-- 用户RSS：`https://your-nitter-service.railway.app/OpenAI/rss`
-- 用户页面：`https://your-nitter-service.railway.app/OpenAI`
+- OpenAI RSS：`https://your-nitter-service.railway.app/OpenAI/rss`
+- Elon Musk RSS：`https://your-nitter-service.railway.app/elonmusk/rss`
+- 用户页面：`https://your-nitter-service.railway.app/OpenAI` 或 `/elonmusk`
 
-#### 7. 在网站后台添加实例
+**测试推文抓取**：
+- 如果RSS端点返回XML格式内容，说明Nitter工作正常
+- 如果返回空内容或错误，可能需要配置Twitter session token（见下方说明）
+
+#### 7. 使用前端测试工具
+
+本项目包含一个前端测试工具，可以方便地管理和测试Nitter实例。
+
+**快速启动（推荐）**：
+
+```bash
+# 安装Node.js依赖（可选，仅用于代理服务器）
+npm install
+
+# 启动代理服务器（解决CORS问题）
+node proxy-server.js
+# 或
+npm start
+```
+
+然后在浏览器中访问：`http://localhost:3000`
+
+**不使用代理服务器**：
+
+直接打开 `index.html` 文件（可能会遇到CORS问题）
+
+**功能特性**：
+- ✅ 添加和管理多个Nitter实例
+- ✅ 测试实例连接状态
+- ✅ 查看推文内容（支持@OpenAI和@elonmusk）
+- ✅ 美观的用户界面
+
+详细使用说明请参考：`FRONTEND_GUIDE.md`
+
+#### 8. 在网站后台添加实例
 
 1. 登录网站管理后台
 2. 进入"Nitter管理"页签
@@ -152,6 +187,15 @@ docker-compose up -d
 # 在Railway中，重新部署服务会自动拉取最新镜像
 # 或者手动触发重新部署
 ```
+
+## 文件说明
+
+- `index.html` - 前端测试工具（单页应用）
+- `proxy-server.js` - RSS代理服务器（解决CORS问题）
+- `package.json` - Node.js依赖配置
+- `FRONTEND_GUIDE.md` - 前端工具使用指南
+- `RAILWAY_DEPLOY.md` - Railway部署详细指南
+- `TEST_CHECKLIST.md` - 部署后测试清单
 
 ## 相关资源
 

@@ -64,11 +64,29 @@
 
 ## 测试推文抓取
 
-1. 在订阅管理中添加：
-   - 源URL：`https://twitter.com/OpenAI` 或 `@OpenAI`
-   - 源类型：`twitter`
-2. 等待系统抓取（或手动触发）
-3. 在"最新推文"页面查看
+### 测试@OpenAI和@elonmusk的推文
+
+1. **直接测试RSS端点**：
+   ```bash
+   # 在浏览器或使用curl测试
+   curl https://your-nitter-service.railway.app/OpenAI/rss
+   curl https://your-nitter-service.railway.app/elonmusk/rss
+   ```
+   如果返回XML格式的RSS内容，说明Nitter工作正常。
+
+2. **在网站后台添加订阅源**：
+   - **OpenAI**：
+     - 源URL：`https://twitter.com/OpenAI` 或 `@OpenAI`
+     - 源类型：`twitter`
+   - **Elon Musk**：
+     - 源URL：`https://twitter.com/elonmusk` 或 `@elonmusk`
+     - 源类型：`twitter`
+   - 等待系统抓取（或手动触发）
+   - 在"最新推文"页面查看
+
+3. **如果RSS返回空内容**：
+   - 可能是Nitter需要Twitter session token
+   - 参考`RAILWAY_DEPLOY.md`中的"关于Session Token"部分
 
 ## 详细文档
 
